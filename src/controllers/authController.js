@@ -1,18 +1,17 @@
 const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");//autherization and session management 
 
-const generateToken = (user) => {
+const generateToken = (user) => { //jwt token
   return jwt.sign(
     {
       userId: user.id,
       role: user.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "1h" } // 1 hour token, we’ll add refresh tokens later
+    { expiresIn: "1h" }
   );
 };
-
 // POST /api/auth/signup
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
@@ -23,11 +22,10 @@ const registerUser = async (req, res) => {
       .status(400)
       .json({ message: "Name, email and password are required" });
   }
-
   try {
     // check if user already exists
     const existingUser = await pool.query(
-      "SELECT id FROM users WHERE email = $1",
+      "SELECT id FROM users WHERE email = $1",//$1 sql injection protection
       [email]
     );
 
