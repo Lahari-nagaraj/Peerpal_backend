@@ -3,6 +3,7 @@ const dotenv= require("dotenv");
 const pool = require("./src/config/db");
 const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
+const tokenRoutes = require("./src/routes/tokenRoutes");
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ app.get("/",(req,res)=>{
 
 });
 
-app.get("/health", async (req, res) => {
+/* app.get("/health", async (req, res) => {
   try {
     const result = await pool.query("SELECT NOW()");// returns current DB server time
     return res.json({//if db connection is successful and queries r working returns 200
@@ -28,10 +29,11 @@ app.get("/health", async (req, res) => {
       message: "Database connection failed",
     });
   }
-});
+}); */
 
 app.use("/api/auth", authRoutes);//mounts auth routes
 app.use("/api/user", userRoutes);
+app.use("/api/token", tokenRoutes);
 
 const PORT = process.env.PORT || 5000;
 

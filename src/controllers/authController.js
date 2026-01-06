@@ -2,16 +2,22 @@ const pool = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");//autherization and session management 
 
-const generateToken = (user) => { //jwt token
+const generateAccessToken = (user) => {
   return jwt.sign(
-    {
-      userId: user.id,
-      role: user.role,
-    },
+    { userId: user.id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: "1h" }
+    { expiresIn: "3m" } // SHORT lived
   );
 };
+
+const generateRefreshToken = () => {
+  return jwt.sign(
+    { type: "refresh" },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+};
+
 // POST /api/auth/signup
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
@@ -47,14 +53,24 @@ const registerUser = async (req, res) => {
 
     const user = result.rows[0];
 
-    // generate JWT token
-    const token = generateToken(user);
+    const accessToken = generateAccessToken(user);
+const refreshToken = generateRefreshToken();
 
-    return res.status(201).json({
-      message: "User registered successfully",
-      user,
-      token,
-    });
+// store refresh token
+await pool.query(
+  `INSERT INTO refresh_tokens (user_id, token, expires_at)
+   VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
+  [user.id, refreshToken]
+);
+
+
+   return res.status(201).json({
+  message: "User registered successfully",
+  user,
+  accessToken,
+  refreshToken,
+});
+
   } catch (err) {
     console.error("Error in registerUser:", err);
     return res
@@ -94,16 +110,24 @@ const loginUser = async (req, res) => {
     }
 
     // generate token
-    const token = generateToken(user);
+   const accessToken = generateAccessToken(user);
+const refreshToken = generateRefreshToken();
 
-    // remove password_hash before sending user
-    delete user.password_hash;
+await pool.query(
+  `INSERT INTO refresh_tokens (user_id, token, expires_at)
+   VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
+  [user.id, refreshToken]
+);
 
-    return res.json({
-      message: "Login successful",
-      user,
-      token,
-    });
+delete user.password_hash;
+
+return res.json({
+  message: "Login successful",
+  user,
+  accessToken,
+  refreshToken,
+});
+
   } catch (err) {
     console.error("Error in loginUser:", err);
     return res
