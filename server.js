@@ -4,6 +4,7 @@ const pool = require("./src/config/db");
 const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const tokenRoutes = require("./src/routes/tokenRoutes");
+const loanRoutes = require("./src/routes/loanRoutes");
 
 dotenv.config();
 
@@ -34,6 +35,8 @@ app.get("/",(req,res)=>{
 app.use("/api/auth", authRoutes);//mounts auth routes
 app.use("/api/user", userRoutes);
 app.use("/api/token", tokenRoutes);
+app.use("/api/loan", loanRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 

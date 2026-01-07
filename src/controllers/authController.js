@@ -6,7 +6,7 @@ const generateAccessToken = (user) => {
   return jwt.sign(
     { userId: user.id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: "3m" } // SHORT lived
+    { expiresIn: "15m" } // SHORT lived
   );
 };
 
