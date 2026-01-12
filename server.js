@@ -5,6 +5,7 @@ const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const tokenRoutes = require("./src/routes/tokenRoutes");
 const loanRoutes = require("./src/routes/loanRoutes");
+const { connectRabbitMQ } = require("./src/config/rabbitmq");
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use("/api/loan", loanRoutes);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT,()=>{
-    console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  await connectRabbitMQ();
 });
