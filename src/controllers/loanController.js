@@ -228,7 +228,14 @@ const payEmi = async (req, res) => {
         [repayment.loan_id]
       );
     }
-
+await publishToQueue({
+  type: "EMI_PAID",
+  userId,
+  loanId: repayment.loan_id,
+  repaymentId: repayment.id,
+  amount: repayment.amount_due,
+  paidAt: new Date(),
+});
     return res.json({
       message: "EMI paid successfully",
       latePayment: isLate,
@@ -238,14 +245,7 @@ const payEmi = async (req, res) => {
     console.error("payEmi error:", err);
     return res.status(500).json({ message: "Server error" });
   }
-  await publishToQueue({
-  type: "EMI_PAID",
-  userId,
-  loanId: repayment.loan_id,
-  repaymentId: repayment.id,
-  amount: repayment.amount_due,
-  paidAt: new Date(),
-});
+  
 
 };
 
