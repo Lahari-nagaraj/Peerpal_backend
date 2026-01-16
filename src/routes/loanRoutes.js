@@ -1,6 +1,9 @@
 const express = require("express");
+const router = express.Router();
+
 const authenticateUser = require("../middlewares/authMiddleware");
 const requireAdmin = require("../middlewares/roleMiddleware");
+
 const {
   requestLoan,
   getAllLoans,
@@ -9,14 +12,26 @@ const {
   payEmi,
 } = require("../controllers/loanController");
 
+const {
+  loanRequestLimiter,
+  emiPaymentLimiter,
+} = require("../middlewares/rateLimiter");
 
-const router = express.Router();
-
-// Student requests loan
-router.post("/request", authenticateUser, requestLoan);
+// Student requests loan (rate limited)
+router.post(
+  "/request",
+  authenticateUser,
+  loanRequestLimiter,
+  requestLoan
+);
 
 // Admin views all loans
-router.get("/admin/all", authenticateUser, requireAdmin, getAllLoans);
+router.get(
+  "/admin/all",
+  authenticateUser,
+  requireAdmin,
+  getAllLoans
+);
 
 // Admin approves loan
 router.patch(
@@ -34,13 +49,12 @@ router.patch(
   rejectLoan
 );
 
-// Student pays EMI
+// Student pays EMI (rate limited)
 router.post(
   "/repayment/:repaymentId/pay",
   authenticateUser,
+  emiPaymentLimiter,
   payEmi
 );
-
-
 
 module.exports = router;
