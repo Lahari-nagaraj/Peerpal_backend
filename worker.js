@@ -6,12 +6,32 @@ const startWorker = async () => {
   const connection = await amqp.connect("amqp://localhost");
   const channel = await connection.createChannel();
 
-  await channel.assertQueue("emi_queue", { durable: true });
-  await channel.assertQueue("emi_retry_queue", { durable: true });
-  await channel.assertQueue("emi_failed_queue", { durable: true });
+  // 🔴 IMPORTANT: Queue definitions MUST MATCH backend exactly
 
-  // 🔹 NEW QUEUE (payment request)
-  await channel.assertQueue("payment_request_queue", { durable: true });
+  // Main EMI queue (with DLQ)
+  await channel.assertQueue("emi_queue", {
+    durable: true,
+    deadLetterExchange: "",
+    deadLetterRoutingKey: "emi_retry_queue",
+  });
+
+  // Retry queue (delayed)
+  await channel.assertQueue("emi_retry_queue", {
+    durable: true,
+    messageTtl: 5000, // 5 seconds delay
+    deadLetterExchange: "",
+    deadLetterRoutingKey: "emi_queue",
+  });
+
+  // Dead Letter Queue
+  await channel.assertQueue("emi_failed_queue", {
+    durable: true,
+  });
+
+  // Payment request queue
+  await channel.assertQueue("payment_request_queue", {
+    durable: true,
+  });
 
   console.log("👷 Worker running with retry & DLQ");
 
@@ -24,12 +44,12 @@ const startWorker = async () => {
     try {
       console.log("📩 Processing EMI:", data);
 
-      // 🔥 SIMULATE RANDOM FAILURE (30%)
+      // ❌ Simulate random failure (30%)
       if (Math.random() < 0.3) {
-        throw new Error("Simulated payment failure");
+        throw new Error("Simulated EMI validation failure");
       }
 
-      // ✅ REPLACED SUCCESS LOGIC STARTS HERE
+      // ✅ Forward to payment service
       console.log("📤 Sending payment request");
 
       channel.sendToQueue(
@@ -47,7 +67,6 @@ const startWorker = async () => {
       );
 
       channel.ack(msg);
-      // ✅ REPLACED SUCCESS LOGIC ENDS HERE
     } catch (err) {
       console.error("❌ EMI FAILED:", err.message);
 
@@ -67,7 +86,10 @@ const startWorker = async () => {
         channel.sendToQueue(
           "emi_retry_queue",
           Buffer.from(
-            JSON.stringify({ ...data, retries: retries + 1 })
+            JSON.stringify({
+              ...data,
+              retries: retries + 1,
+            })
           ),
           { persistent: true }
         );

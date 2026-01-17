@@ -1,11 +1,12 @@
 const amqp = require("amqplib");
-const pool = require("./src/config/db"); // adjust path if needed
+const pool = require("./src/config/db");
 
 const startResultWorker = async () => {
   const connection = await amqp.connect("amqp://localhost");
   const channel = await connection.createChannel();
 
   await channel.assertQueue("payment_result_queue", { durable: true });
+  await channel.assertQueue("notification_queue", { durable: true });
 
   console.log("📥 Payment Result Worker running with DB transactions...");
 
@@ -21,7 +22,9 @@ const startResultWorker = async () => {
       if (result.status === "SUCCESS") {
         // 1️⃣ Mark repayment PAID
         await client.query(
-          `UPDATE repayments SET status = 'PAID' WHERE id = $1`,
+          `UPDATE repayments 
+           SET status = 'PAID' 
+           WHERE id = $1`,
           [result.repaymentId]
         );
 
@@ -39,13 +42,39 @@ const startResultWorker = async () => {
 
         // 3️⃣ Update credit score
         await client.query(
-          `UPDATE users SET credit_score = credit_score + 10 WHERE id = $1`,
+          `UPDATE users 
+           SET credit_score = credit_score + 10 
+           WHERE id = $1`,
           [result.userId]
         );
 
-        console.log("✅ EMI finalized successfully");
+        // 4️⃣ Publish notification event
+        channel.sendToQueue(
+          "notification_queue",
+          Buffer.from(
+            JSON.stringify({
+              userId: result.userId,
+              message: `EMI of ₹${result.amount} paid successfully.`,
+            })
+          ),
+          { persistent: true }
+        );
+
+        console.log("✅ EMI finalized & notification queued");
       } else {
-        console.log("❌ Payment failed, no DB changes");
+        // Payment failed notification
+        channel.sendToQueue(
+          "notification_queue",
+          Buffer.from(
+            JSON.stringify({
+              userId: result.userId,
+              message: "EMI payment failed. Please try again.",
+            })
+          ),
+          { persistent: true }
+        );
+
+        console.log("❌ Payment failed, notification queued");
       }
 
       await client.query("COMMIT");
