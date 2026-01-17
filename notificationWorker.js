@@ -1,5 +1,6 @@
 const amqp = require("amqplib");
-const pool = require("./src/config/db"); // adjust path if needed
+const pool = require("./src/config/db");
+const { getIO } = require("./src/socket");
 
 const startNotificationWorker = async () => {
   const connection = await amqp.connect("amqp://localhost");
@@ -12,9 +13,7 @@ const startNotificationWorker = async () => {
   channel.consume("notification_queue", async (msg) => {
     if (!msg) return;
 
-    const event = JSON.parse(msg.content.toString());
-
-    const { userId, message } = event;
+    const { userId, message } = JSON.parse(msg.content.toString());
 
     try {
       await pool.query(
@@ -24,6 +23,14 @@ const startNotificationWorker = async () => {
       );
 
       console.log("📢 Notification saved:", message);
+
+      // 🔥 Emit real-time event
+      const io = getIO();
+      io.to(`user_${userId}`).emit("notification", {
+        message,
+        createdAt: new Date(),
+      });
+
       channel.ack(msg);
     } catch (err) {
       console.error("❌ Notification error:", err.message);

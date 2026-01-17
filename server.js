@@ -1,47 +1,36 @@
-const express = require('express');
-const dotenv= require("dotenv");
-const pool = require("./src/config/db");
+const express = require("express");
+const dotenv = require("dotenv");
+const http = require("http");
+
 const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const tokenRoutes = require("./src/routes/tokenRoutes");
 const loanRoutes = require("./src/routes/loanRoutes");
 const { connectRabbitMQ } = require("./src/config/rabbitmq");
+const { initSocket } = require("./src/socket");
 
 dotenv.config();
 
 const app = express();
-app.use(express.json());//automatically parses the incoming json requests(req body would be undefined without this)
+app.use(express.json());
 
-app.get("/",(req,res)=>{
-    res.json({message:"Peerpal Backend API running"});
-
+app.get("/", (req, res) => {
+  res.json({ message: "PeerPal Backend API running" });
 });
 
-/* app.get("/health", async (req, res) => {
-  try {
-    const result = await pool.query("SELECT NOW()");// returns current DB server time
-    return res.json({//if db connection is successful and queries r working returns 200
-      status: "ok",
-      dbTime: result.rows[0].now,
-    });
-  } catch (err) {
-    console.error("Health check error:", err);
-    return res.status(500).json({
-      status: "error",
-      message: "Database connection failed",
-    });
-  }
-}); */
-
-app.use("/api/auth", authRoutes);//mounts auth routes
+app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/token", tokenRoutes);
 app.use("/api/loan", loanRoutes);
 
+const server = http.createServer(app);
+
+// 🔥 Initialize socket.io ONLY ONCE here
+initSocket(server);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   await connectRabbitMQ();
 });
